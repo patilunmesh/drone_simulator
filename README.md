@@ -30,16 +30,15 @@ ws_ros
 ├── log
 └── src
     └── drone_simulation
-        ├── docs
         ├── drone_simulation
-        └── readme.md
+        └── README.md
 
 ```
 
 ## Build the workspace
 
 ```sh
-cd ws_ros
+cd ros2_ws
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -47,6 +46,5 @@ source install/setup.bash
 ## Run the simulation
 
 ```sh
-cd src/drone_simulation/drone_simulation/launch
-ros2 launch 2V1T_launch.py
+ros2 launch single_agent_launch.py
 ```
