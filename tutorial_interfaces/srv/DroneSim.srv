@@ -1,0 +1,6 @@
+bool step
+float32[] victim_state
+---
+float32 reward
+float32[] state
+bool done

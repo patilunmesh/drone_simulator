@@ -1,21 +1,52 @@
-## A repository to simulate dynamics and control of a drone.
+# ROS2 Autonomous UAV Simulation
 
-For a given start and goal pose, simulate a drone trajectory tracked by an LQR controller.
-The ROS2 node publishes Remote_id in real time.
+## Setup a ROS2 workspace
 
-# Single drone obstacle avoidance:
+```sh
+$ tree
 
-![](https://github.com/sabotagelab/DroneSim_A58/blob/master/graphics/obst_avoid.gif)
+ws_ros
+├── build
+├── install
+├── log
+└── src
+```
 
-# Multiple drones spawn example:
+Remember to source the setup.bash file in the install folder or add it to your bashrc/zshrc file
 
-![](https://github.com/sabotagelab/DroneSim_A58/blob/master/graphics/multi-agent.gif)
+```sh
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+echo "source /opt/ros/humble/setup.zsh" >> ~/.zshrc
+```
 
-(four drones test scenario):
+## Clone the repository in the src folder
 
-![](https://github.com/sabotagelab/DroneSim_A58/blob/master/graphics/4drones.png)
+```sh
+$ tree
 
-#References:
-1. Sabatino, Francesco. "Quadrotor control: modeling, nonlinearcontrol design, and simulation." (2015).
-2. Mueller, Mark W., Markus Hehn, and Raffaello D'Andrea. "A computationally efficient motion primitive for quadrocopter trajectory generation." IEEE transactions on robotics 31.6 (2015): 1294-1310.
-3. https://github.com/sundw2014/Quadrotor_LQR/tree/master
+ws_ros
+├── build
+├── install
+├── log
+└── src
+    └── drone_simulation
+        ├── docs
+        ├── drone_simulation
+        └── readme.md
+
+```
+
+## Build the workspace
+
+```sh
+cd ws_ros
+colcon build --symlink-install
+source install/setup.bash
+```
+
+## Run the simulation
+
+```sh
+cd src/drone_simulation/drone_simulation/launch
+ros2 launch 2V1T_launch.py
+```
