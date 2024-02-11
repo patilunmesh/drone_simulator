@@ -1,5 +1,10 @@
 # ROS2 Autonomous UAV Simulation
 
+## Prerequisites
+```
+sudo apt-get install ros-humble-tf-transformations
+pip install transform3d
+```
 ## Setup a ROS2 workspace
 
 ```sh
