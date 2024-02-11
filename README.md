@@ -5,7 +5,7 @@
 ```sh
 $ tree
 
-ws_ros
+ros2_ws
 ├── build
 ├── install
 ├── log
@@ -16,7 +16,6 @@ Remember to source the setup.bash file in the install folder or add it to your b
 
 ```sh
 echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
-echo "source /opt/ros/humble/setup.zsh" >> ~/.zshrc
 ```
 
 ## Clone the repository in the src folder
@@ -39,12 +38,12 @@ ws_ros
 
 ```sh
 cd ros2_ws
-colcon build --symlink-install
+colcon build
 source install/setup.bash
 ```
 
 ## Run the simulation
 
 ```sh
-ros2 launch single_agent_launch.py
+ros2 launch drone_simulation single_agent_launch.py
 ```
