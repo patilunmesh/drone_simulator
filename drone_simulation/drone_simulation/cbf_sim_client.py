@@ -7,7 +7,8 @@ from rclpy.parameter import Parameter
 
 from drone_simulation.utils import drone_visualizer
 from drone_simulation.utils import l2_norm
-from tutorial_interfaces.srv import DroneSim
+
+from tutorial_interfaces.srv import ResetSim
 
 """
 A ROS2 + python based node acts as a client to the drone_gym service
@@ -15,49 +16,29 @@ A ROS2 + python based node acts as a client to the drone_gym service
 """
 
 
-class DroneClient(Node):
+class DroneCBFClient(Node):
     def __init__(self):
-        super().__init__("drone_client")
+        super().__init__("droneCBFclient")
         # parameters
-        self.declare_parameter("start_pose", [0, 0, 0])
         self.declare_parameter("my_id", 0)
-        startpos = (
-            self.get_parameter("start_pose").get_parameter_value().integer_array_value
-        )
         self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
 
-        self.cli = self.create_client(DroneSim, "/drone" + str(self.myid) + "/DroneSim")
+        self.cli = self.create_client(ResetSim, "/drone" + str(self.myid) + "/ResetSim")
         while not self.cli.wait_for_service(timeout_sec=5.0):
             self.get_logger().info("service not available, waiting again...")
-        self.req = DroneSim.Request()
+        self.req = ResetSim.Request()
 
-    def send_request(self, step):  # tested
-        self.req.step = step
-        self.req.victim_state = [0.0, 0.0, -10.0]
+    def send_request(self, cbf_param=0.0):  # tested
+        self.req.reset = True
+        self.req.cbf_param = cbf_param
         self.future = self.cli.call_async(self.req)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    finish = False
-    client_ = DroneClient()
-    max_itr = 10000
-    itr = 0
-    while not finish:
-        client_.send_request(step=True)
-        rclpy.spin_until_future_complete(client_, client_.future)
-        time.sleep(0.15)
-        itr += 1
-        if itr > max_itr:
-            print("max_itr reached", response.reward)
-            break  # itr based terminal condition
-        # goal state based terminal condition
-        response = client_.future.result()
-        finish = response.done
-        if finish:
-            print("goal_reached", response.reward)
-            break
-    client_.destroy_node()
+    client = DroneCBFClient()
+    client.send_request()
+    client.destroy_node()
     rclpy.shutdown()
 
 

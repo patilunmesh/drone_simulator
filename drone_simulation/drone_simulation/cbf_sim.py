@@ -3,6 +3,7 @@ Sim summary:
 This code takes input start pose, goal pose and time. These states are passed to a trajectory generator.
 The trajectory generator is based on the rapid motion primitive generation paper.
 The generated trajectory is then sent to controller as a set of waypoints.
+# TODO: CHANGE THIS GENERATED TRAJECTORY TO ONE THAT IS CBF BASED
 LQR controller is used to generate the control sequence which is rotor velocities for a quadrotor.
 The control output, and current state is then carried over to a state estimation module.
 
@@ -27,9 +28,11 @@ from drone_simulation.utils import (
     update_time,
 )
 
-class Drone_sim(Node):
+from tutorial_interfaces.srv import ResetSim
+
+class DroneCBFSim(Node):
     def __init__(self):
-        super().__init__("Drone_sim")
+        super().__init__("DroneCBFSim")
 
         # parameters
         self.declare_parameter("start_pose", [0, 0, 0])
@@ -42,7 +45,6 @@ class Drone_sim(Node):
         # publishers
         self.drone_publisher = self.create_publisher(Marker, "drone", 1)
         self.pose_publisher = self.create_publisher(Odometry, "true_pose", 1)
-        # self.obstacle_publisher = self.create_publisher(MarkerArray, 'obstacles', 10)
         self.global_traj_publisher = self.create_publisher(Path, "global_traj", 1)
         self.local_traj_publisher = self.create_publisher(Path, "local_traj", 1)
 
@@ -54,30 +56,34 @@ class Drone_sim(Node):
         self.timer_period = 1 / 10  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
 
+        # reset service used to send this drone back to starting position
+        self.reset_service = self.create_service(ResetSim, "/drone" + str(self.myid) + "/ResetSim", self.reset_callback)
+
         self.i = 0
 
         # Define the duration of simulation:
         self.Tf = 5  # in seconds
-        numPlotPoints = 100 * self.Tf  # temporal resolution
-        self.time = np.linspace(0, self.Tf, numPlotPoints)
+        self.numPlotPoints = 100 * self.Tf  # temporal resolution
+        self.time = np.linspace(0, self.Tf, self.numPlotPoints)
         # Define the trajectory starting state:
-        pos0 = startpos  # position
-        vel0 = [0, 0, 0]  # velocity
-        acc0 = [0, 0, 0]  # acceleration
+        self.pos0 = startpos  # position
+        self.vel0 = [0, 0, 0]  # velocity
+        self.acc0 = [0, 0, 0]  # acceleration
 
         # Define the goal state:
-        self.posf = [pos0[0] + 10, pos0[1], pos0[2] + 10]  # position
+        self.posf = [self.pos0[0] + 10, self.pos0[1], self.pos0[2] + 10]  # position
         self.velf = [0, 0, 0]  # velocity
         self.accf = [0, 9.81, 0]  # acceleration
 
         # Rapid trajectory generator
-        traj, px, py, pz = trajectoryGenie(
-            pos0, vel0, acc0, self.posf, self.velf, self.accf, self.Tf, numPlotPoints
+        self.cbf_param = 0
+        self.traj, self.px, self.py, self.pz = trajectoryGenie(
+            self.pos0, self.vel0, self.acc0, self.posf, self.velf, self.accf, self.Tf, self.numPlotPoints
         )
-        self.traj_marker = trajectory_maker(px, py, pz)
+        self.traj_marker = trajectory_maker(self.px, self.py, self.pz)
 
         #solving control sequence beforhand
-        x_nl = LQR(px, py, pz, self.Tf + 2, numPlotPoints)
+        x_nl = LQR(self.px, self.py, self.pz, self.Tf + 2, self.numPlotPoints)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
         self.roll, self.pitch, self.yaw = x_nl[:, 6], x_nl[:, 8], x_nl[:, 10]
         self.tru_pose = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -128,6 +134,31 @@ class Drone_sim(Node):
             self.obstacle_data = [r, x, y, z, ind - 1]
         else:
             self.collision_flag = False
+
+    def reset_callback(self, request, response):
+        self.get_logger().info('Getting Request to Reset Sim')
+        print('Getting Request to Reset Sim')
+        self.i = 0
+
+        if request.cbf_param != self.cbf_param:
+            # TODO: redo trajectory
+            pass
+        
+        x_nl = LQR(self.px, self.py, self.pz, self.Tf + 2, self.numPlotPoints)
+        self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
+        self.roll, self.pitch, self.yaw = x_nl[:, 6], x_nl[:, 8], x_nl[:, 10]
+        self.tru_pose = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        self.collision_flag = False
+        self.replanning = False
+        self.obstacle_data = []
+        self.t0 = self.get_clock().now()
+
+        self.timer.destroy()
+        self.timer = self.create_timer(self.timer_period, self.timer_callback)
+        
+        response.done = True
+        return response
 
     def replanner(self, local_traj):
         '''
@@ -184,7 +215,7 @@ class Drone_sim(Node):
 
 
 rclpy.init(args=None)
-Drone_sim = Drone_sim()
+Drone_sim = DroneCBFSim()
 time.sleep(0.15)
 rclpy.spin(Drone_sim)
 Drone_sim.destroy_node()

@@ -38,7 +38,9 @@ setup(
             "sim_client = drone_simulation.sim_client:main",
             "future_pred = drone_simulation.future_pred",
             "imu_spoof = drone_simulation.imu_spoofing:main",
-            "gps_spoof = drone_simulation.gps_spoofing:main"            
+            "gps_spoof = drone_simulation.gps_spoofing:main",
+            "drone_cbf_sim = drone_simulation.cbf_sim:main",
+            "drone_cbf_client = drone_simulation.cbf_sim_client:main"            
         ],
     },
 )
