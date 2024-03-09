@@ -47,7 +47,7 @@ class DroneCBFSim(Node):
         self.pose_publisher = self.create_publisher(Odometry, "true_pose", 1)
         self.global_traj_publisher = self.create_publisher(Path, "global_traj", 1)
         self.local_traj_publisher = self.create_publisher(Path, "local_traj", 1)
-
+        
         # subscribers
         self.detected_obst_subscriber = self.create_subscription(
             Float32MultiArray, "near_obstacles", self.obst_callback, 1
@@ -71,7 +71,8 @@ class DroneCBFSim(Node):
         self.acc0 = [0, 0, 0]  # acceleration
 
         # Define the goal state:
-        self.posf = [self.pos0[0] + 10, self.pos0[1], self.pos0[2] + 10]  # position
+        # self.posf = [self.pos0[0] + 10, self.pos0[1], self.pos0[2] + 10]  # position
+        self.posf = [1.5, 4, 9]  # position
         self.velf = [0, 0, 0]  # velocity
         self.accf = [0, 9.81, 0]  # acceleration
 
@@ -110,6 +111,7 @@ class DroneCBFSim(Node):
             pos.twist.twist.linear.x, pos.twist.twist.linear.y, pos.twist.twist.linear.z = vx_, vy_, vz_
             local_traj_marker = local_traj_maker(self.ax, self.ay, self.az, self.i)
             self.tru_pose = x, y, z, rol, pit, ya
+            # cbf_val = h([x,y,z], self.obst)
             # all publishers
             self.drone_publisher.publish(drone_marker)
             self.pose_publisher.publish(pos)

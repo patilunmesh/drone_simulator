@@ -40,7 +40,8 @@ setup(
             "imu_spoof = drone_simulation.imu_spoofing:main",
             "gps_spoof = drone_simulation.gps_spoofing:main",
             "drone_cbf_sim = drone_simulation.cbf_sim:main",
-            "drone_cbf_client = drone_simulation.cbf_sim_client:main"            
-        ],
+            "cbf_publisher = drone_simulation.cbf_publisher:main",
+            "drone_cbf_client = drone_simulation.cbf_sim_client:main",            
+            ],
     },
 )
