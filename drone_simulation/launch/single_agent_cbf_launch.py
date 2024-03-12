@@ -16,7 +16,13 @@ def generate_launch_description():
                 name="sim",
                 output="screen",
                 emulate_tty=True,
-                parameters=[{"start_pose": [0, 0, 0]}, {"my_id": 1}],
+                parameters=[{"start_pose": [0, 0, 0]}, {"my_id": 1}, {"cbf_param": 15}],
+            ),
+            Node(
+                package="drone_simulation",
+                executable="cbf_publisher",
+                name="drone1_cbf_publisher",
+                parameters=[{"my_id": 1}]
             ),
             Node(
                 package="drone_simulation",
@@ -31,7 +37,7 @@ def generate_launch_description():
             Node(
                 package="drone_simulation",
                 executable="obstacle_generator",
-                name="obstacle_generator",
+                name="obstacle_generator"
             ),
             Node(
                 package="rviz2",
