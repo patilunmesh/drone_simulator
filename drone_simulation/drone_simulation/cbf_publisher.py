@@ -1,10 +1,13 @@
 import time
 import numpy as np
+from pysinewave import SineWave  # sudo apt-get install libportaudio2, then pip install pysinewave
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Float32, Float32MultiArray, Header
 from visualization_msgs.msg import Marker, MarkerArray
+
+from tutorial_interfaces.srv import Sound
 
 class CBFPublisher(Node):
 	def __init__(self):
@@ -12,8 +15,20 @@ class CBFPublisher(Node):
 
 		self.declare_parameter("my_id", 1)
 		self.declare_parameter("safety_radius", 0.7)
+		self.declare_parameter("sound_on", 0)
+		self.declare_parameter("sound_on_upper_bound", 50)  # Upper bound on CBF values
+		self.declare_parameter("sound_on_lower_bound", 5) # lower bound on CBF values
+		self.declare_parameter("sound_pitch_freq", 0)  # 0 to round to nearest pitch, 1 to use raw frequency
+		# self.declare_parameter("decibels", )
 		self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
 		self.safety_radius = self.get_parameter("safety_radius").get_parameter_value().double_value
+		
+		self.sound_on = self.get_parameter("sound_on").get_parameter_value().integer_value
+		self.sound_upper_bound = self.get_parameter("sound_on_upper_bound").get_parameter_value().integer_value
+		self.sound_lower_bound = self.get_parameter("sound_on_lower_bound").get_parameter_value().integer_value
+		self.pitch_freq = self.get_parameter("sound_pitch_freq").get_parameter_value().integer_value
+		self.sinewave = SineWave(pitch=0, pitch_per_second=10)
+		self.playing = False
 
 		self.timer_period = 1 / 10
 		self.timer = self.create_timer(self.timer_period, self.pub_cbf_vals_callback)
@@ -27,6 +42,9 @@ class CBFPublisher(Node):
 			MarkerArray, "obstacles", self.marker_array_callback, 1)
 		self.subscription_pose = self.create_subscription(
 			Odometry, "/drone" + str(self.myid) + "/true_pose", self.save_cbf_vals_callback, 1)
+
+		# Sound on Sound Off service
+		self.sound_service = self.create_service(Sound, "/drone" + str(self.myid) + "/sound", self.sound_callback)
 
 		self.obstacles = []
 
@@ -54,6 +72,9 @@ class CBFPublisher(Node):
 		except Exception as e:
 			self.get_logger().info("cannot compute CBF, got error message {}".format(e))
 
+		if self.sound_on == 1:
+			return self.playSound(h)
+
 	@staticmethod
 	def calculate_cbf(position1, position2, separation):
 		dx = position1.x - position2.x
@@ -64,6 +85,72 @@ class CBFPublisher(Node):
 		hy_deriv = 2*dy
 		hz_deriv = 2*dz
 		return h, hx_deriv, hy_deriv, hz_deriv
+
+	def sound_callback(self, request, response):
+		self.get_logger().info('Toggling Sound')
+
+		if request.sound_on:
+			self.sound_on = 1
+		else:
+			self.sound_on = 0
+			self.sinewave.stop()
+			self.playing = False
+
+		response.done = True
+		return response
+
+	def playSound(self, h):
+		self.transformPitch(h)
+		if not self.playing:
+			self.sinewave.play()
+			self.playing = True
+		else:
+			self.transformPitch(h)
+		time.sleep(3)
+	
+	def transformPitch(self, h):
+		# higher CBF values map to lower pitches
+		# lower CBF values map to higher pitches
+		high_freq = 523.25
+		low_freq = 261.63
+		slope = (high_freq - low_freq) / (self.sound_lower_bound - self.sound_upper_bound)
+		freq_output = low_freq + slope * (h - self.sound_upper_bound)
+		if self.pitch_freq == 0:
+			note_output = self.mapToNote(freq_output)
+			self.sinewave.set_pitch(note_output)
+		else:
+			self.sinewave.set_frequency(freq_output)
+
+
+	@staticmethod
+	def mapToNote(freq):
+		if freq <= 261.63:
+			note = 0  # C1
+		elif 261.63 < freq <= 277.18:
+			note = 1  # C#/Db 
+		elif 277.18 < freq <= 293.66:
+			note = 2  # D
+		elif 293.66 < freq <= 311.13:
+			note = 3  # D#/Eb
+		elif 311.13 < freq <= 329.63:
+			note = 4  # E
+		elif 329.63 < freq <= 349.23:
+			note = 5  # F
+		elif 349.23 < freq <= 369.99:
+			note = 6  # F#/Gb
+		elif 369.99 < freq <= 392.00:
+			note = 7  # G
+		elif 392.00 < freq <= 415.30:
+			note = 8  # G#/Ab
+		elif 415.30 < freq <= 440.00:
+			note = 9  # A
+		elif 440.00 < freq <= 466.16:
+			note = 10 # A#/Bb
+		elif 466.16 < freq <= 493.88:
+			note = 11 # B
+		else:
+			note = 12 # C2
+		return note
 
 
 def main(args=None):

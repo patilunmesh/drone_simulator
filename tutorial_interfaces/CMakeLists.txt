@@ -32,6 +32,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Obstacle.msg"
   "msg/Obstacles.msg"
   "srv/ResetSim.srv"
+  "srv/Sound.srv"
   DEPENDENCIES std_msgs
 )
 

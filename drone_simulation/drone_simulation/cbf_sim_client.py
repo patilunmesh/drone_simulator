@@ -10,17 +10,12 @@ from drone_simulation.utils import l2_norm
 
 from tutorial_interfaces.srv import ResetSim
 
-"""
-A ROS2 + python based node acts as a client to the drone_gym service
-
-"""
-
 
 class DroneCBFClient(Node):
     def __init__(self):
         super().__init__("droneCBFclient")
         # parameters
-        self.declare_parameter("my_id", 0)
+        self.declare_parameter("my_id", 1)
         self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
 
         self.cli = self.create_client(ResetSim, "/drone" + str(self.myid) + "/ResetSim")
@@ -28,7 +23,7 @@ class DroneCBFClient(Node):
             self.get_logger().info("service not available, waiting again...")
         self.req = ResetSim.Request()
 
-    def send_request(self, cbf_param=0.0):  # tested
+    def send_request(self, cbf_param=15.0):
         self.req.reset = True
         self.req.cbf_param = cbf_param
         self.future = self.cli.call_async(self.req)
@@ -36,8 +31,14 @@ class DroneCBFClient(Node):
 
 def main(args=None):
     rclpy.init(args=args)
+    cbf_param = input('Set new CBF parameter (float): ')
+    try:
+        cbf_param = float(cbf_param)
+    except:
+        print('Cannot set value {}. Using default value'.format(cbf_param))
+        cbf_param = 15.0
     client = DroneCBFClient()
-    client.send_request()
+    client.send_request(cbf_param=cbf_param)
     client.destroy_node()
     rclpy.shutdown()
 

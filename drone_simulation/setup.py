@@ -41,7 +41,8 @@ setup(
             "gps_spoof = drone_simulation.gps_spoofing:main",
             "drone_cbf_sim = drone_simulation.cbf_sim:main",
             "cbf_publisher = drone_simulation.cbf_publisher:main",
-            "drone_cbf_client = drone_simulation.cbf_sim_client:main",            
+            "drone_cbf_client = drone_simulation.cbf_sim_client:main",
+            "drone_sound_client = drone_simulation.cbf_sound_client:main",            
             ],
     },
 )

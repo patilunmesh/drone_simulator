@@ -11,7 +11,7 @@ The control output, and current state is then carried over to a state estimation
 
 import time
 import numpy as np
-from scipy.optimize import minimize, LinearConstraint
+from scipy.optimize import minimize, LinearConstraint, Bounds
 import rclpy
 from nav_msgs.msg import Odometry
 from nav_msgs.msg import Path
@@ -38,12 +38,12 @@ class DroneCBFSim(Node):
         # parameters
         self.declare_parameter("start_pose", [0, 0, 0])
         self.declare_parameter("my_id", 0)
-        self.declare_parameter("cbf_param", 1)
+        self.declare_parameter("cbf_param", 15.0)
         startpos = (
             self.get_parameter("start_pose").get_parameter_value().integer_array_value
         )
         self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
-        self.cbf_param = self.get_parameter("cbf_param").get_parameter_value().integer_value
+        self.cbf_param = self.get_parameter("cbf_param").get_parameter_value().double_value
 
         # publishers
         self.drone_publisher = self.create_publisher(Marker, "drone", 1)
@@ -136,8 +136,6 @@ class DroneCBFSim(Node):
             self.i += 1
 
         if self.collision_flag:
-            print("collision found!! replanning begins")
-            print(self.cbf_vals)
             self.replanner(local_traj_marker)
             self.collision_flag = False
 
@@ -169,8 +167,13 @@ class DroneCBFSim(Node):
         self.i = 0
 
         if request.cbf_param != self.cbf_param:
-            # TODO: redo trajectory
-            pass
+            self.cbf_param = request.cbf_param
+
+        self.traj, self.px, self.py, self.pz, self.accel = trajectoryGenieAccel(
+        self.pos0, self.vel0, self.acc0, self.posf, self.velf, self.accf, self.Tf, self.numPlotPoints
+        )
+        self.traj_marker = trajectory_maker(self.px, self.py, self.pz)
+        self.tru_state = [self.pos0[0], self.pos0[1], self.pos0[1], 0.0, 0.0, 0.0]
         
         x_nl = LQR(self.px, self.py, self.pz, self.Tf + 2, self.numPlotPoints)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
@@ -221,15 +224,17 @@ class DroneCBFSim(Node):
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0],
             # [newx, newy, drone_pt.z],
-            [newx, newy, newz],
+            [newx, newy, lz],
+            # [newx, newy, newz],
             self.velf,
             self.accf,
             1,
             100,
         )
         traj2, px2, py2, pz2 = trajectoryGenie(
+            [newx, newy, lz],
             # [newx, newy, drone_pt.z],
-            [newx, newy, newz],
+            # [newx, newy, newz],
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0],
             self.posf,
@@ -286,7 +291,7 @@ class DroneCBFSim(Node):
             return np.linalg.norm(u - self.accel[self.i])**2
         u0 = self.accel[self.i]
         try:
-            res = minimize(min_func, u0, constraints=constraints)
+            res = minimize(min_func, u0, constraints=constraints) #bounds=Bounds([-100, -100, -100], [100, 100, 100]))
             u_safe = res.x
         except Exception as e:
             print('could not solve for safe inputs {}'.format(e))
