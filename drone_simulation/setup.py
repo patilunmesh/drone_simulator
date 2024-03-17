@@ -4,11 +4,12 @@ from glob import glob
 from setuptools import setup
 
 package_name = "drone_simulation"
+submodules = "CBF_Demo"
 
 setup(
     name=package_name,
     version="0.0.0",
-    packages=[package_name],
+    packages=[package_name, submodules],
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
@@ -39,10 +40,10 @@ setup(
             "future_pred = drone_simulation.future_pred",
             "imu_spoof = drone_simulation.imu_spoofing:main",
             "gps_spoof = drone_simulation.gps_spoofing:main",
-            "drone_cbf_sim = drone_simulation.CBF_Demo.cbf_sim:main",
-            "cbf_publisher = drone_simulation.CBF_Demo.cbf_publisher:main",
-            "drone_cbf_client = drone_simulation.CBF_Demo.cbf_sim_client:main",
-            "drone_sound_client = drone_simulation.CBF_Demo.cbf_sound_client:main",            
+            "drone_cbf_sim = CBF_Demo.cbf_sim:main",
+            "cbf_publisher = CBF_Demo.cbf_publisher:main",
+            "drone_cbf_client = CBF_Demo.cbf_sim_client:main",
+            "drone_sound_client = CBF_Demo.cbf_sound_client:main",            
             ],
     },
 )

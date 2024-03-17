@@ -243,7 +243,7 @@ class DroneCBFSim(Node):
         px = np.concatenate((px1, px2))
         py = np.concatenate((py1, py2))
         pz = np.concatenate((pz1, pz2))
-        self.accel = np.concatenate(accel1, accel2)
+        self.accel = np.concatenate((accel1, accel2))
         
         # resolve the control sequence for this new trajectory
         x_nl = LQR(px, py, pz, newTf + 12, (newTf) * 100, phi0, theta0, psi0)
