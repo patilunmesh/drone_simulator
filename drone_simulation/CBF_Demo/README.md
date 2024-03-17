@@ -38,3 +38,12 @@ The default parameter is 15. Running the above will reset the simulation to the 
 - `cbf_sim_client.py`: A client node for testing and interfacing with the CBF simulator in `cbf_sim.py`.
 - `cbf_sim.py`: Node that runs the simulation and visualizes all aspects (drone, trajectories, obstacle).
 - `cbf_sound_client.py`: A client node for testing and interfacing with the CBF publisher defined in `cbf_publisher.py`
+
+## Future Work
+The sound library I opted to use is kind of finicky, and often crashed when testing within the virtual environment in which I was developing. Future work would include exploring more robust sound libraries.
+Other enhancements to this project include incorporating multiple drones, and sonifying their different CBF values at the same time.
+
+## Resources
+- [](https://github.com/HybridRobotics/CBF-CLF-Helper)https://github.com/HybridRobotics/CBF-CLF-Helper: For guidance on CBF implementation
+- [](https://github.com/daviddavini/pysinewave)https://github.com/daviddavini/pysinewave: Documentation for the sound library used
+- [](http://docs.ros.org/en/humble/): ROS2 documentation
