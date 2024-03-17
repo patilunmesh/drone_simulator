@@ -1,3 +1,8 @@
+"""
+Node to compute and publish CBF values for the given drone id and safety radius.
+Additionally, if `sound_on` parameter is set to 1, will sonify the CBF values by mapping them to pitches
+and playing them via SineWave objects through the audio driver of the computer the node is running on.
+"""
 import time
 import numpy as np
 from pysinewave import SineWave  # sudo apt-get install libportaudio2, then pip install pysinewave
@@ -13,13 +18,12 @@ class CBFPublisher(Node):
 	def __init__(self):
 		super().__init__("CBFPublisher")
 
-		self.declare_parameter("my_id", 1)
-		self.declare_parameter("safety_radius", 0.7)
-		self.declare_parameter("sound_on", 0)
-		self.declare_parameter("sound_on_upper_bound", 50)  # Upper bound on CBF values
-		self.declare_parameter("sound_on_lower_bound", 5) # lower bound on CBF values
+		self.declare_parameter("my_id", 1)  # drone id
+		self.declare_parameter("safety_radius", 0.7)  # safety radius for computing CBF
+		self.declare_parameter("sound_on", 0)  # 0 to turn off sound, 1 to turn on sound
+		self.declare_parameter("sound_on_upper_bound", 50)  # Upper bound on CBF values for lowest pitch
+		self.declare_parameter("sound_on_lower_bound", 5) # Lower bound on CBF values for highest pitch
 		self.declare_parameter("sound_pitch_freq", 0)  # 0 to round to nearest pitch, 1 to use raw frequency
-		# self.declare_parameter("decibels", )
 		self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
 		self.safety_radius = self.get_parameter("safety_radius").get_parameter_value().double_value
 		
@@ -49,17 +53,24 @@ class CBFPublisher(Node):
 		self.obstacles = []
 
 	def marker_array_callback(self, msg):
-		# self.get_logger().info("got obstacles")
+		"""
+		save the obstacles published on the `obstacles` topic
+		"""
 		self.obstacles = msg.markers
 
 	def pub_cbf_vals_callback(self):
+		"""
+		Publish the computed CBF values
+		"""
 		cbf_msg = Float32MultiArray()
 		cbf_msg.data = self.cbf_vals
 		self.cbf_val_publisher.publish(cbf_msg)
-		# self.get_logger().info("publishing cbf values")
-
 
 	def save_cbf_vals_callback(self, msg):
+		"""
+		Computes CBF values for the obstacles.
+		Plays sound based on the CBF values if sound enabled.
+		"""
 		try:
 			drone_pos = msg.pose.pose.position
 			cbf_vals = []
@@ -69,14 +80,17 @@ class CBFPublisher(Node):
 				h, hx_deriv, hy_deriv, hz_deriv = self.calculate_cbf(drone_pos, obstacle_pos, obstacle_radius)
 				cbf_vals.extend([h, hx_deriv, hy_deriv, hz_deriv])
 			self.cbf_vals = cbf_vals
+
+			if self.sound_on == 1:
+				return self.playSound(h)
 		except Exception as e:
 			self.get_logger().info("cannot compute CBF, got error message {}".format(e))
 
-		if self.sound_on == 1:
-			return self.playSound(h)
-
 	@staticmethod
 	def calculate_cbf(position1, position2, separation):
+		"""
+		Calculate the CBF value (h) and the partial derivatives (hx_deriv, hy_deriv, hz_deriv)
+		"""
 		dx = position1.x - position2.x
 		dy = position1.y - position2.y
 		dz = position1.z - position2.z
@@ -100,6 +114,9 @@ class CBFPublisher(Node):
 		return response
 
 	def playSound(self, h):
+		"""
+		Play a sound based on the CBF value h
+		"""
 		self.transformPitch(h)
 		if not self.playing:
 			self.sinewave.play()
@@ -109,6 +126,9 @@ class CBFPublisher(Node):
 		time.sleep(3)
 	
 	def transformPitch(self, h):
+		"""
+		Transform the CBF value h to frequency/pitch values
+		"""
 		# higher CBF values map to lower pitches
 		# lower CBF values map to higher pitches
 		high_freq = 523.25
@@ -121,9 +141,11 @@ class CBFPublisher(Node):
 		else:
 			self.sinewave.set_frequency(freq_output)
 
-
 	@staticmethod
 	def mapToNote(freq):
+		"""
+		Map ranges of raw frequency value to a single pitch value
+		"""
 		if freq <= 261.63:
 			note = 0  # C1
 		elif 261.63 < freq <= 277.18:

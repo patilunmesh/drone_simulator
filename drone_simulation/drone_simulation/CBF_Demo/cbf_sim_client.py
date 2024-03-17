@@ -1,12 +1,13 @@
+"""
+A client node for interfacing with the CBF simulator in `cbf_sim.py`
+Allows for resetting the simulation and setting new CBF parameters.
+"""
+
 import time
 
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.parameter import Parameter
-
-from drone_simulation.utils import drone_visualizer
-from drone_simulation.utils import l2_norm
 
 from tutorial_interfaces.srv import ResetSim
 
@@ -14,10 +15,11 @@ from tutorial_interfaces.srv import ResetSim
 class DroneCBFClient(Node):
     def __init__(self):
         super().__init__("droneCBFclient")
-        # parameters
+        # Parameters
         self.declare_parameter("my_id", 1)
         self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
 
+        # Client for the Reset Service
         self.cli = self.create_client(ResetSim, "/drone" + str(self.myid) + "/ResetSim")
         while not self.cli.wait_for_service(timeout_sec=5.0):
             self.get_logger().info("service not available, waiting again...")
@@ -30,6 +32,9 @@ class DroneCBFClient(Node):
 
 
 def main(args=None):
+    """
+    Sends service request after user keyboard input for new CBF parameter.
+    """
     rclpy.init(args=args)
     cbf_param = input('Set new CBF parameter (float): ')
     try:

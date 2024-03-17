@@ -70,6 +70,9 @@ def trajectoryGenie(pos0, vel0, acc0, posf, velf, accf, Tf, numPlotPoints):
 
 
 def trajectoryGenieAccel(pos0, vel0, acc0, posf, velf, accf, Tf, numPlotPoints):
+    """
+    Identical function to above, but also returns planned acceleration 
+    """
     # Define the input limits:
     fmin = 5  # [m/s**2]
     fmax = 25  # [m/s**2]

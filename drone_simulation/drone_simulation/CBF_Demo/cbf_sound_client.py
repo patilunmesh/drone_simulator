@@ -1,3 +1,8 @@
+"""
+A client node for interfacing with the CBF Publisher sound service in `cbf_publisher.py`
+Allows for toggling on and off the sound
+"""
+
 import time
 
 import numpy as np

@@ -1,3 +1,7 @@
+"""
+Launch file for the CBF Demo
+"""
+
 from os.path import expanduser
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -51,6 +55,3 @@ def generate_launch_description():
             ),
         ]
     )
-
-
-# os.path.join(pkg_dir, 'config', 'drone.rviz')

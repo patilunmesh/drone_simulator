@@ -1,12 +1,14 @@
 """
-Sim summary:
+A modification of `sim.py`
+
+Simulation summary:
 This code takes input start pose, goal pose and time. These states are passed to a trajectory generator.
 The trajectory generator is based on the rapid motion primitive generation paper.
-The generated trajectory is then sent to controller as a set of waypoints.
-# TODO: CHANGE THIS GENERATED TRAJECTORY TO ONE THAT IS CBF BASED
-LQR controller is used to generate the control sequence which is rotor velocities for a quadrotor.
+The generated trajectory is then sent to an LQR controller as a set of waypoints.
+When obstacle is detected, a CBF controller computes safe inputs to a safe position, with which 
+the trajectory generator replans the trajectory. 
+After replanning, control is given back to LQR controller.
 The control output, and current state is then carried over to a state estimation module.
-
 """
 
 import time
@@ -17,7 +19,6 @@ from nav_msgs.msg import Odometry
 from nav_msgs.msg import Path
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Header
-from tf_transformations import quaternion_from_euler
 from visualization_msgs.msg import Marker
 
 from drone_simulation.LQR import LQR
@@ -107,6 +108,9 @@ class DroneCBFSim(Node):
         self.t0 = self.get_clock().now()
 
     def timer_callback(self):
+        """
+        Updates the simulation at every time step
+        """
         sec, nanosec = update_time(self.t0, 0.01, self.i)
         head = Header()
         head.stamp.sec, head.stamp.nanosec = sec, nanosec
@@ -130,7 +134,7 @@ class DroneCBFSim(Node):
             self.global_traj_publisher.publish(self.traj_marker)
             self.local_traj_publisher.publish(local_traj_marker)
         else:
-            print('simulation finished, please reset')
+            self.get_logger().info('simulation finished, please reset')
 
         if not self.collision_flag:
             self.i += 1
@@ -140,6 +144,9 @@ class DroneCBFSim(Node):
             self.collision_flag = False
 
     def obst_callback(self, msg):
+        """
+        Collects obstacle data when drone is detected to be near ab obstacle
+        """
         obstacles = msg.data
         if (len(obstacles) > 0 and self.i > 4):  
             # first five points should be obstacle free
@@ -150,6 +157,9 @@ class DroneCBFSim(Node):
             self.collision_flag = False
 
     def cbf_callback(self, msg):
+        """
+        Collects CBF values continuously
+        """
         cbf_vals = msg.data
         new_cbf_vals = []
         c = 0
@@ -163,6 +173,10 @@ class DroneCBFSim(Node):
         self.cbf_vals = new_cbf_vals
 
     def reset_callback(self, request, response):
+        """
+        Resets the simulator. 
+        Drone goes back to initial position, and trajectory is replanned form that position.
+        """
         self.get_logger().info('Getting Request to Reset Sim')
         self.i = 0
 
@@ -192,49 +206,32 @@ class DroneCBFSim(Node):
         return response
 
     def replanner(self, local_traj):
-        '''
-        This function can be used to customize the obstacle avoidance feature
-        '''
+        """
+        Replans for obstacle avoidance
+        """
         self.replanning = True
         
-        # get new position using CBF controller
-        safe_state = self.keep_safe()
+        # Get new safe position using CBF controller
+        safe_state = self.keep_safe(local_traj)
         newx = safe_state[0]
         newy = safe_state[1]
-        newz = safe_state[1]
+        newz = safe_state[2]
 
+        # Generate new trajectories based on rerouting to this new safe position
         [lx, ly, lz, phi0, theta0, psi0] = self.tru_pose
-        drone_pt = local_traj.poses[int(self.obstacle_data[-1])].pose.position  # get position at index of trajectory where they intersect
-        # obst_pt = self.obstacle_data[1], self.obstacle_data[2], self.obstacle_data[3]
-        # r = self.obstacle_data[0] / 1.0
-        # if drone_pt.x == obst_pt[0]:
-        #     newx = drone_pt.x
-        # else:
-        #     dir_x = abs(drone_pt.x - obst_pt[0]) / (drone_pt.x - obst_pt[0])
-        #     newx = drone_pt.x + dir_x / max(abs(drone_pt.x - obst_pt[0]), r)
-        # if drone_pt.y == obst_pt[1]:
-        #     newy = drone_pt.y
-        # else:
-        #     dir_y = abs(drone_pt.y - obst_pt[1]) / (drone_pt.y - obst_pt[1])
-        #     newy = drone_pt.y + dir_y / max(abs(drone_pt.y - obst_pt[1]), r)
-
         newTf = int(((self.Tf * 100) - self.i + 200) / 100)
-        traj1, px1, py1, pz1 = trajectoryGenie(
+        traj1, px1, py1, pz1, accel1 = trajectoryGenieAccel(
             [lx, ly, lz],
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0],
-            # [newx, newy, drone_pt.z],
             [newx, newy, lz],
-            # [newx, newy, newz],
             self.velf,
             self.accf,
             1,
             100,
         )
-        traj2, px2, py2, pz2 = trajectoryGenie(
+        traj2, px2, py2, pz2, accel2 = trajectoryGenieAccel(
             [newx, newy, lz],
-            # [newx, newy, drone_pt.z],
-            # [newx, newy, newz],
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0],
             self.posf,
@@ -246,17 +243,22 @@ class DroneCBFSim(Node):
         px = np.concatenate((px1, px2))
         py = np.concatenate((py1, py2))
         pz = np.concatenate((pz1, pz2))
+        self.accel = np.concatenate(accel1, accel2)
+        
+        # resolve the control sequence for this new trajectory
         x_nl = LQR(px, py, pz, newTf + 12, (newTf) * 100, phi0, theta0, psi0)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
         self.roll, self.pitch, self.yaw = x_nl[:, 6], x_nl[:, 8], x_nl[:, 10]
         self.i = 0
         self.time = np.linspace(0, newTf, newTf * 100)
-        print("replanning finished!")
-        print(self.cbf_vals)
+        self.get_logger().info("replanning finished!")
         self.traj_marker = trajectory_maker(px, py, pz)
 
-
-    def keep_safe(self):
+    def keep_safe(self, local_traj):
+        """
+        Computes new safe position using CBF controller.
+        Uses double-integrator dynamics and acceleration as input.
+        """
         dt = self.timer_period
         f = np.array([
             [1, 0, 0, dt, 0, 0],
@@ -275,7 +277,6 @@ class DroneCBFSim(Node):
             [0, 0, dt],
         ])
 
-        
         A = []
         b = []
         for val in self.cbf_vals:
@@ -291,16 +292,38 @@ class DroneCBFSim(Node):
             return np.linalg.norm(u - self.accel[self.i])**2
         u0 = self.accel[self.i]
         try:
-            res = minimize(min_func, u0, constraints=constraints) #bounds=Bounds([-100, -100, -100], [100, 100, 100]))
+            res = minimize(min_func, u0, constraints=constraints) 
             u_safe = res.x
         except Exception as e:
-            print('could not solve for safe inputs {}'.format(e))
-            u_safe = self.accel[self.i]
+            # If cannot solve CBf optimization then use the original obstacle avoidance behavior as fallback
+            self.get_logger().info('could not solve for safe inputs {}'.format(e))
+            return self.replan_fallback(local_traj)
 
-        # the ideal new state to keep it safe
+        # The ideal new state to keep it safe
         new_state = np.dot(f, self.tru_state) + np.dot(g, u_safe)
 
         return new_state
+    
+    def replan_fallback(self, local_traj):
+        """
+        Fallback to find new safe poitn for replanning
+        """
+        [lx, ly, lz, phi0, theta0, psi0] = self.tru_pose
+        drone_pt = local_traj.poses[int(self.obstacle_data[-1])].pose.position
+        obst_pt = self.obstacle_data[1], self.obstacle_data[2], self.obstacle_data[3]
+        r = self.obstacle_data[0] / 1.0
+        if drone_pt.x == obst_pt[0]:
+            newx = drone_pt.x
+        else:
+            dir_x = abs(drone_pt.x - obst_pt[0]) / (drone_pt.x - obst_pt[0])
+            newx = drone_pt.x + dir_x / max(abs(drone_pt.x - obst_pt[0]), r)
+        if drone_pt.y == obst_pt[1]:
+            newy = drone_pt.y
+        else:
+            dir_y = abs(drone_pt.y - obst_pt[1]) / (drone_pt.y - obst_pt[1])
+            newy = drone_pt.y + dir_y / max(abs(drone_pt.y - obst_pt[1]), r)
+        
+        return [newx, newy, lz]
 
 
 rclpy.init(args=None)
