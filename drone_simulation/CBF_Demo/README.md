@@ -36,7 +36,7 @@ The default parameter is 15. Running the above will reset the simulation to the 
 
 - `cbf_publisher.py`: Node to compute and publish CBF values for the given drone id and safety radius.
 - `cbf_sim_client.py`: A client node for testing and interfacing with the CBF simulator in `cbf_sim.py`.
-- `cbf_sim.py`: Node that runs the simulation and visualizes all aspects (drone, trajectories, obstacle).
+- `cbf_sim.py`: Node that runs the simulation and visualizes all aspects (drone, trajectories, obstacle). This node also uses the published CBF values to recompute a safe trajectory for the drone when detecting an obstacle.
 - `cbf_sound_client.py`: A client node for testing and interfacing with the CBF publisher defined in `cbf_publisher.py`
 
 ## Future Work
