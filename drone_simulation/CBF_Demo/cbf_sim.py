@@ -32,6 +32,7 @@ from drone_simulation.utils import (
 
 from tutorial_interfaces.srv import ResetSim
 
+
 class DroneCBFSim(Node):
     def __init__(self):
         super().__init__("DroneCBFSim")
@@ -44,20 +45,25 @@ class DroneCBFSim(Node):
             self.get_parameter("start_pose").get_parameter_value().integer_array_value
         )
         self.myid = self.get_parameter("my_id").get_parameter_value().integer_value
-        self.cbf_param = self.get_parameter("cbf_param").get_parameter_value().double_value
+        self.cbf_param = (
+            self.get_parameter("cbf_param").get_parameter_value().double_value
+        )
 
         # publishers
         self.drone_publisher = self.create_publisher(Marker, "drone", 1)
         self.pose_publisher = self.create_publisher(Odometry, "true_pose", 1)
         self.global_traj_publisher = self.create_publisher(Path, "global_traj", 1)
         self.local_traj_publisher = self.create_publisher(Path, "local_traj", 1)
-        
+
         # subscribers
         self.detected_obst_subscriber = self.create_subscription(
             Float32MultiArray, "near_obstacles", self.obst_callback, 1
         )
         self.cbf_subscriber = self.create_subscription(
-            Float32MultiArray, "/drone" + str(self.myid) + "/cbf_val", self.cbf_callback, 1
+            Float32MultiArray,
+            "/drone" + str(self.myid) + "/cbf_val",
+            self.cbf_callback,
+            1,
         )
         self.cbf_vals = []
         self.cbf_warn = False
@@ -66,7 +72,9 @@ class DroneCBFSim(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
 
         # reset service used to send this drone back to starting position
-        self.reset_service = self.create_service(ResetSim, "/drone" + str(self.myid) + "/ResetSim", self.reset_callback)
+        self.reset_service = self.create_service(
+            ResetSim, "/drone" + str(self.myid) + "/ResetSim", self.reset_callback
+        )
 
         self.i = 0
 
@@ -90,12 +98,19 @@ class DroneCBFSim(Node):
         #     self.pos0, self.vel0, self.acc0, self.posf, self.velf, self.accf, self.Tf, self.numPlotPoints
         # )
         self.traj, self.px, self.py, self.pz, self.accel = trajectoryGenieAccel(
-            self.pos0, self.vel0, self.acc0, self.posf, self.velf, self.accf, self.Tf, self.numPlotPoints
+            self.pos0,
+            self.vel0,
+            self.acc0,
+            self.posf,
+            self.velf,
+            self.accf,
+            self.Tf,
+            self.numPlotPoints,
         )
         self.traj_marker = trajectory_maker(self.px, self.py, self.pz)
         self.tru_state = [self.pos0[0], self.pos0[1], self.pos0[1], 0.0, 0.0, 0.0]
 
-        #solving control sequence beforhand
+        # solving control sequence beforhand
         x_nl = LQR(self.px, self.py, self.pz, self.Tf + 2, self.numPlotPoints)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
         self.roll, self.pitch, self.yaw = x_nl[:, 6], x_nl[:, 8], x_nl[:, 10]
@@ -114,7 +129,7 @@ class DroneCBFSim(Node):
         sec, nanosec = update_time(self.t0, 0.01, self.i)
         head = Header()
         head.stamp.sec, head.stamp.nanosec = sec, nanosec
-        if self.i < len(self.time) - 1:    
+        if self.i < len(self.time) - 1:
             x = self.ax[self.i]
             y = self.ay[self.i]
             z = self.az[self.i]
@@ -123,7 +138,11 @@ class DroneCBFSim(Node):
             vz_ = (self.az[self.i + 1] - self.az[self.i]) / (self.timer_period)
             rol, pit, ya = self.roll[self.i], self.pitch[self.i], self.yaw[self.i]
             drone_marker, pos = drone_visualizer(x, y, z, rol, pit, ya)
-            pos.twist.twist.linear.x, pos.twist.twist.linear.y, pos.twist.twist.linear.z = vx_, vy_, vz_
+            (
+                pos.twist.twist.linear.x,
+                pos.twist.twist.linear.y,
+                pos.twist.twist.linear.z,
+            ) = (vx_, vy_, vz_)
             local_traj_marker = local_traj_maker(self.ax, self.ay, self.az, self.i)
             self.tru_pose = x, y, z, rol, pit, ya
             self.tru_state = [x, y, z, vx_, vy_, vz_]
@@ -134,7 +153,7 @@ class DroneCBFSim(Node):
             self.global_traj_publisher.publish(self.traj_marker)
             self.local_traj_publisher.publish(local_traj_marker)
         else:
-            self.get_logger().info('simulation finished, please reset')
+            self.get_logger().info("simulation finished, please reset")
 
         if not self.collision_flag:
             self.i += 1
@@ -148,7 +167,7 @@ class DroneCBFSim(Node):
         Collects obstacle data when drone is detected to be near ab obstacle
         """
         obstacles = msg.data
-        if (len(obstacles) > 0 and self.i > 4):  
+        if len(obstacles) > 0 and self.i > 4:
             # first five points should be obstacle free
             self.collision_flag = True
             [r, x, y, z, ind] = obstacles
@@ -174,21 +193,28 @@ class DroneCBFSim(Node):
 
     def reset_callback(self, request, response):
         """
-        Resets the simulator. 
+        Resets the simulator.
         Drone goes back to initial position, and trajectory is replanned form that position.
         """
-        self.get_logger().info('Getting Request to Reset Sim')
+        self.get_logger().info("Getting Request to Reset Sim")
         self.i = 0
 
         if request.cbf_param != self.cbf_param:
             self.cbf_param = request.cbf_param
 
         self.traj, self.px, self.py, self.pz, self.accel = trajectoryGenieAccel(
-        self.pos0, self.vel0, self.acc0, self.posf, self.velf, self.accf, self.Tf, self.numPlotPoints
+            self.pos0,
+            self.vel0,
+            self.acc0,
+            self.posf,
+            self.velf,
+            self.accf,
+            self.Tf,
+            self.numPlotPoints,
         )
         self.traj_marker = trajectory_maker(self.px, self.py, self.pz)
         self.tru_state = [self.pos0[0], self.pos0[1], self.pos0[1], 0.0, 0.0, 0.0]
-        
+
         x_nl = LQR(self.px, self.py, self.pz, self.Tf + 2, self.numPlotPoints)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
         self.roll, self.pitch, self.yaw = x_nl[:, 6], x_nl[:, 8], x_nl[:, 10]
@@ -201,7 +227,7 @@ class DroneCBFSim(Node):
 
         self.timer.destroy()
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
-        
+
         response.done = True
         return response
 
@@ -210,7 +236,7 @@ class DroneCBFSim(Node):
         Replans for obstacle avoidance
         """
         self.replanning = True
-        
+
         # Get new safe position using CBF controller
         safe_state = self.keep_safe(local_traj)
         newx = safe_state[0]
@@ -244,7 +270,7 @@ class DroneCBFSim(Node):
         py = np.concatenate((py1, py2))
         pz = np.concatenate((pz1, pz2))
         self.accel = np.concatenate((accel1, accel2))
-        
+
         # resolve the control sequence for this new trajectory
         x_nl = LQR(px, py, pz, newTf + 12, (newTf) * 100, phi0, theta0, psi0)
         self.ax, self.ay, self.az = x_nl[:, 0], x_nl[:, 2], x_nl[:, 4]
@@ -260,22 +286,26 @@ class DroneCBFSim(Node):
         Uses double-integrator dynamics and acceleration as input.
         """
         dt = self.timer_period
-        f = np.array([
-            [1, 0, 0, dt, 0, 0],
-            [0, 1, 0, 0, dt, 0],
-            [0, 0, 1, 0, 0, dt],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1],
-        ])
-        g = np.array([
-            [0.5*dt**2, 0, 0],
-            [0, 0.5*dt**2, 0],
-            [0, 0, 0.5*dt**2],
-            [dt, 0, 0],
-            [0, dt, 0],
-            [0, 0, dt],
-        ])
+        f = np.array(
+            [
+                [1, 0, 0, dt, 0, 0],
+                [0, 1, 0, 0, dt, 0],
+                [0, 0, 1, 0, 0, dt],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+            ]
+        )
+        g = np.array(
+            [
+                [0.5 * dt**2, 0, 0],
+                [0, 0.5 * dt**2, 0],
+                [0, 0, 0.5 * dt**2],
+                [dt, 0, 0],
+                [0, dt, 0],
+                [0, 0, dt],
+            ]
+        )
 
         A = []
         b = []
@@ -288,22 +318,24 @@ class DroneCBFSim(Node):
             b.append(Lfh + self.cbf_param * h)
 
         constraints = LinearConstraint(A, lb=b, ub=np.inf)
+
         def min_func(u):
-            return np.linalg.norm(u - self.accel[self.i])**2
+            return np.linalg.norm(u - self.accel[self.i]) ** 2
+
         u0 = self.accel[self.i]
         try:
-            res = minimize(min_func, u0, constraints=constraints) 
+            res = minimize(min_func, u0, constraints=constraints)
             u_safe = res.x
         except Exception as e:
             # If cannot solve CBf optimization then use the original obstacle avoidance behavior as fallback
-            self.get_logger().info('could not solve for safe inputs {}'.format(e))
+            self.get_logger().info("could not solve for safe inputs {}".format(e))
             return self.replan_fallback(local_traj)
 
         # The ideal new state to keep it safe
         new_state = np.dot(f, self.tru_state) + np.dot(g, u_safe)
 
         return new_state
-    
+
     def replan_fallback(self, local_traj):
         """
         Fallback to find new safe poitn for replanning
@@ -322,7 +354,7 @@ class DroneCBFSim(Node):
         else:
             dir_y = abs(drone_pt.y - obst_pt[1]) / (drone_pt.y - obst_pt[1])
             newy = drone_pt.y + dir_y / max(abs(drone_pt.y - obst_pt[1]), r)
-        
+
         return [newx, newy, lz]
 
 

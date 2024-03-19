@@ -36,11 +36,11 @@ def main(args=None):
     Sends service request after user keyboard input for new CBF parameter.
     """
     rclpy.init(args=args)
-    cbf_param = input('Set new CBF parameter (float): ')
+    cbf_param = input("Set new CBF parameter (float): ")
     try:
         cbf_param = float(cbf_param)
     except:
-        print('Cannot set value {}. Using default value'.format(cbf_param))
+        print("Cannot set value {}. Using default value".format(cbf_param))
         cbf_param = 15.0
     client = DroneCBFClient()
     client.send_request(cbf_param=cbf_param)

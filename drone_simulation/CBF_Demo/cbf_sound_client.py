@@ -35,7 +35,7 @@ class DroneCBFSoundClient(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    sound_on = input('Toggle Sound (1 for on / other for off): ')
+    sound_on = input("Toggle Sound (1 for on / other for off): ")
     try:
         sound_on = int(sound_on)
         if sound_on == 1:
@@ -48,8 +48,7 @@ def main(args=None):
         rclpy.shutdown()
     except Exception as e:
         print(e)
-        print('Cannot set value {}'.format(sound_on))
-
+        print("Cannot set value {}".format(sound_on))
 
 
 if __name__ == "__main__":

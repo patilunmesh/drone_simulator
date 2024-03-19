@@ -7,6 +7,7 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 home = expanduser("~")
 
+
 # launches 1 drone
 def generate_launch_description():
     pkg_name = "drone_simulation"
