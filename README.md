@@ -1,5 +1,16 @@
 # ROS2 Autonomous UAV Simulation
 
+## Citation
+If you are using this work in your research, you can cite this paper:
+
+Title: ROS2-Based Simulation Framework for Cyberphysical Security Analysis of UAVs
+
+Link: https://arxiv.org/pdf/2410.03971
+
+Citation:
+```
+Patil, U., Gunasekaran, A., Bobba, R., & Abbas, H. (2024). ROS2-Based Simulation Framework for Cyberphysical Security Analysis of UAVs. arXiv preprint arXiv:2410.03971.
+```
 ## Prerequisites
 ```
 sudo apt-get install ros-humble-tf-transformations
